@@ -1,4 +1,4 @@
-// Copyright 2018 The casbin Authors. All Rights Reserved.
+// Copyright 2025 The casbin Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,17 +14,13 @@
 
 package log
 
-// Logger is the logging interface implementation.
+// Logger defines the interface for event-driven logging in Casbin.
 type Logger interface {
-	//EnableLog controls whether print the message.
-	EnableLog(bool)
+	SetEventTypes([]EventType) error
+	// OnBeforeEvent is called before an event occurs and returns a handle for context.
+	OnBeforeEvent(entry *LogEntry) error
+	// OnAfterEvent is called after an event completes with the handle and final entry.
+	OnAfterEvent(entry *LogEntry) error
 
-	//IsEnabled returns if logger is enabled.
-	IsEnabled() bool
-
-	//Print formats using the default formats for its operands and logs the message.
-	Print(...interface{})
-
-	//Printf formats according to a format specifier and logs the message.
-	Printf(string, ...interface{})
+	SetLogCallback(func(entry *LogEntry) error) error
 }

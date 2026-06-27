@@ -30,7 +30,7 @@ func BenchmarkCachedBasicModel(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		e.Enforce("alice", "data1", "read")
+		_, _ = e.Enforce("alice", "data1", "read")
 	}
 }
 
@@ -39,67 +39,89 @@ func BenchmarkCachedRBACModel(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		e.Enforce("alice", "data2", "read")
+		_, _ = e.Enforce("alice", "data2", "read")
 	}
 }
 
 func BenchmarkCachedRBACModelSmall(b *testing.B) {
 	e, _ := NewCachedEnforcer("examples/rbac_model.conf")
-	// Do not rebuild the role inheritance relations for every AddGroupingPolicy() call.
-	e.EnableAutoBuildRoleLinks(false)
 	// 100 roles, 10 resources.
 	for i := 0; i < 100; i++ {
-		e.AddPolicy(fmt.Sprintf("group%d", i), fmt.Sprintf("data%d", i/10), "read")
+		_, err := e.AddPolicy(fmt.Sprintf("group%d", i), fmt.Sprintf("data%d", i/10), "read")
+		if err != nil {
+			b.Fatal(err)
+		}
 	}
 	// 1000 users.
 	for i := 0; i < 1000; i++ {
-		e.AddGroupingPolicy(fmt.Sprintf("user%d", i), fmt.Sprintf("group%d", i/10))
+		_, err := e.AddGroupingPolicy(fmt.Sprintf("user%d", i), fmt.Sprintf("group%d", i/10))
+		if err != nil {
+			b.Fatal(err)
+		}
 	}
-	e.BuildRoleLinks()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		e.Enforce("user501", "data9", "read")
+		_, _ = e.Enforce("user501", "data9", "read")
 	}
 }
 
 func BenchmarkCachedRBACModelMedium(b *testing.B) {
 	e, _ := NewCachedEnforcer("examples/rbac_model.conf")
-	// Do not rebuild the role inheritance relations for every AddGroupingPolicy() call.
-	e.EnableAutoBuildRoleLinks(false)
 	// 1000 roles, 100 resources.
+	pPolicies := make([][]string, 0)
 	for i := 0; i < 1000; i++ {
-		e.AddPolicy(fmt.Sprintf("group%d", i), fmt.Sprintf("data%d", i/10), "read")
+		pPolicies = append(pPolicies, []string{fmt.Sprintf("group%d", i), fmt.Sprintf("data%d", i/10), "read"})
 	}
+
+	_, err := e.AddPolicies(pPolicies)
+	if err != nil {
+		b.Fatal(err)
+	}
+
 	// 10000 users.
+	gPolicies := make([][]string, 0)
 	for i := 0; i < 10000; i++ {
-		e.AddGroupingPolicy(fmt.Sprintf("user%d", i), fmt.Sprintf("group%d", i/10))
+		gPolicies = append(gPolicies, []string{fmt.Sprintf("user%d", i), fmt.Sprintf("group%d", i/10)})
 	}
-	e.BuildRoleLinks()
+
+	_, err = e.AddGroupingPolicies(gPolicies)
+	if err != nil {
+		b.Fatal(err)
+	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		e.Enforce("user5001", "data150", "read")
+		_, _ = e.Enforce("user5001", "data150", "read")
 	}
 }
 
 func BenchmarkCachedRBACModelLarge(b *testing.B) {
 	e, _ := NewCachedEnforcer("examples/rbac_model.conf")
-	// Do not rebuild the role inheritance relations for every AddGroupingPolicy() call.
-	e.EnableAutoBuildRoleLinks(false)
+
 	// 10000 roles, 1000 resources.
+	pPolicies := make([][]string, 0)
 	for i := 0; i < 10000; i++ {
-		e.AddPolicy(fmt.Sprintf("group%d", i), fmt.Sprintf("data%d", i/10), "read")
+		pPolicies = append(pPolicies, []string{fmt.Sprintf("group%d", i), fmt.Sprintf("data%d", i/10), "read"})
 	}
+	_, err := e.AddPolicies(pPolicies)
+	if err != nil {
+		b.Fatal(err)
+	}
+
 	// 100000 users.
+	gPolicies := make([][]string, 0)
 	for i := 0; i < 100000; i++ {
-		e.AddGroupingPolicy(fmt.Sprintf("user%d", i), fmt.Sprintf("group%d", i/10))
+		gPolicies = append(gPolicies, []string{fmt.Sprintf("user%d", i), fmt.Sprintf("group%d", i/10)})
 	}
-	e.BuildRoleLinks()
+	_, err = e.AddGroupingPolicies(gPolicies)
+	if err != nil {
+		b.Fatal(err)
+	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		e.Enforce("user50001", "data1500", "read")
+		_, _ = e.Enforce("user50001", "data1500", "read")
 	}
 }
 
@@ -108,7 +130,7 @@ func BenchmarkCachedRBACModelWithResourceRoles(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		e.Enforce("alice", "data1", "read")
+		_, _ = e.Enforce("alice", "data1", "read")
 	}
 }
 
@@ -117,7 +139,7 @@ func BenchmarkCachedRBACModelWithDomains(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		e.Enforce("alice", "domain1", "data1", "read")
+		_, _ = e.Enforce("alice", "domain1", "data1", "read")
 	}
 }
 
@@ -127,7 +149,7 @@ func BenchmarkCachedABACModel(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		e.Enforce("alice", data1, "read")
+		_, _ = e.Enforce("alice", data1, "read")
 	}
 }
 
@@ -136,7 +158,7 @@ func BenchmarkCachedKeyMatchModel(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		e.Enforce("alice", "/alice_data/resource1", "GET")
+		_, _ = e.Enforce("alice", "/alice_data/resource1", "GET")
 	}
 }
 
@@ -145,7 +167,7 @@ func BenchmarkCachedRBACModelWithDeny(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		e.Enforce("alice", "data1", "read")
+		_, _ = e.Enforce("alice", "data1", "read")
 	}
 }
 
@@ -154,28 +176,46 @@ func BenchmarkCachedPriorityModel(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		e.Enforce("alice", "data1", "read")
+		_, _ = e.Enforce("alice", "data1", "read")
+	}
+}
+
+func BenchmarkCachedWithEnforceContext(b *testing.B) {
+	e, _ := NewCachedEnforcer("examples/priority_model_enforce_context.conf", "examples/priority_policy_enforce_context.csv")
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = e.Enforce(EnforceContext{RType: "r2", PType: "p", EType: "e", MType: "m2"}, "alice", "data1")
 	}
 }
 
 func BenchmarkCachedRBACModelMediumParallel(b *testing.B) {
 	e, _ := NewCachedEnforcer("examples/rbac_model.conf")
-	// Do not rebuild the role inheritance relations for every AddGroupingPolicy() call.
-	e.EnableAutoBuildRoleLinks(false)
-	// 1000 roles, 100 resources.
-	for i := 0; i < 1000; i++ {
-		e.AddPolicy(fmt.Sprintf("group%d", i), fmt.Sprintf("data%d", i/10), "read")
-	}
-	// 10000 users.
+
+	// 10000 roles, 1000 resources.
+	pPolicies := make([][]string, 0)
 	for i := 0; i < 10000; i++ {
-		e.AddGroupingPolicy(fmt.Sprintf("user%d", i), fmt.Sprintf("group%d", i/10))
+		pPolicies = append(pPolicies, []string{fmt.Sprintf("group%d", i), fmt.Sprintf("data%d", i/10), "read"})
 	}
-	e.BuildRoleLinks()
+	_, err := e.AddPolicies(pPolicies)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	// 100000 users.
+	gPolicies := make([][]string, 0)
+	for i := 0; i < 100000; i++ {
+		gPolicies = append(gPolicies, []string{fmt.Sprintf("user%d", i), fmt.Sprintf("group%d", i/10)})
+	}
+	_, err = e.AddGroupingPolicies(gPolicies)
+	if err != nil {
+		b.Fatal(err)
+	}
 
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			e.Enforce("user5001", "data150", "read")
+			_, _ = e.Enforce("user5001", "data150", "read")
 		}
 	})
 }

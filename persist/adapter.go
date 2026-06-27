@@ -15,25 +15,67 @@
 package persist
 
 import (
+	"bytes"
+	"encoding/csv"
 	"strings"
 
-	"github.com/casbin/casbin/v2/model"
+	"github.com/casbin/casbin/v3/model"
 )
 
 // LoadPolicyLine loads a text line as a policy rule to model.
-func LoadPolicyLine(line string, model model.Model) {
+func LoadPolicyLine(line string, m model.Model) error {
 	if line == "" || strings.HasPrefix(line, "#") {
-		return
+		return nil
 	}
 
-	tokens := strings.Split(line, ",")
-	for i := 0; i < len(tokens); i++ {
-		tokens[i] = strings.TrimSpace(tokens[i])
+	r := csv.NewReader(strings.NewReader(line))
+	r.Comma = ','
+	r.Comment = '#'
+	r.TrimLeadingSpace = true
+
+	tokens, err := r.Read()
+	if err != nil {
+		return err
 	}
 
-	key := tokens[0]
+	return LoadPolicyArray(tokens, m)
+}
+
+// PolicyLineToCsv serializes a policy type and its rule fields into a CSV-safe line.
+// Fields containing commas are properly quoted so the line can be round-tripped
+// through LoadPolicyLine without corruption.
+func PolicyLineToCsv(ptype string, rule []string) (string, error) {
+	record := append([]string{ptype}, rule...)
+	var buf bytes.Buffer
+	w := csv.NewWriter(&buf)
+	if err := w.Write(record); err != nil {
+		return "", err
+	}
+	w.Flush()
+	if err := w.Error(); err != nil {
+		return "", err
+	}
+	return strings.TrimRight(buf.String(), "\r\n"), nil
+}
+
+// LoadPolicyArray loads a policy rule to model.
+func LoadPolicyArray(rule []string, m model.Model) error {
+	key := rule[0]
 	sec := key[:1]
-	model[sec][key].Policy = append(model[sec][key].Policy, tokens[1:])
+	ok, err := m.HasPolicyEx(sec, key, rule[1:])
+	if err != nil {
+		return err
+	}
+	if ok {
+		return nil // skip duplicated policy
+	}
+
+	err = m.AddPolicy(sec, key, rule[1:])
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Adapter is the interface for Casbin adapters.

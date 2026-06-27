@@ -17,21 +17,21 @@ package casbin
 import (
 	"testing"
 
-	"github.com/casbin/casbin/v2/model"
+	"github.com/casbin/casbin/v3/model"
 )
 
 type SampleWatcherEx struct {
 	SampleWatcher
 }
 
-func (w SampleWatcherEx) UpdateForAddPolicy(params ...string) error {
+func (w SampleWatcherEx) UpdateForAddPolicy(sec, ptype string, params ...string) error {
 	return nil
 }
-func (w SampleWatcherEx) UpdateForRemovePolicy(params ...string) error {
+func (w SampleWatcherEx) UpdateForRemovePolicy(sec, ptype string, params ...string) error {
 	return nil
 }
 
-func (w SampleWatcherEx) UpdateForRemoveFilteredPolicy(fieldIndex int, fieldValues ...string) error {
+func (w SampleWatcherEx) UpdateForRemoveFilteredPolicy(sec, ptype string, fieldIndex int, fieldValues ...string) error {
 	return nil
 }
 
@@ -39,14 +39,32 @@ func (w SampleWatcherEx) UpdateForSavePolicy(model model.Model) error {
 	return nil
 }
 
+func (w SampleWatcherEx) UpdateForAddPolicies(sec string, ptype string, rules ...[]string) error {
+	return nil
+}
+
+func (w SampleWatcherEx) UpdateForRemovePolicies(sec string, ptype string, rules ...[]string) error {
+	return nil
+}
+
 func TestSetWatcherEx(t *testing.T) {
 	e, _ := NewEnforcer("examples/rbac_model.conf", "examples/rbac_policy.csv")
 
-	sampleWatcherEx := SampleWatcherEx{}
-	e.SetWatcher(sampleWatcherEx)
+	sampleWatcherEx := &SampleWatcherEx{}
+	err := e.SetWatcher(sampleWatcherEx)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	e.SavePolicy()                           // calls watcherEx.UpdateForSavePolicy()
-	e.AddPolicy("admin", "data1", "read")    // calls watcherEx.UpdateForAddPolicy()
-	e.RemovePolicy("admin", "data1", "read") // calls watcherEx.UpdateForRemovePolicy()
-	e.RemoveFilteredPolicy(1, "data1")       // calls watcherEx.UpdateForRemoveFilteredPolicy()
+	_ = e.SavePolicy()                              // calls watcherEx.UpdateForSavePolicy()
+	_, _ = e.AddPolicy("admin", "data1", "read")    // calls watcherEx.UpdateForAddPolicy()
+	_, _ = e.RemovePolicy("admin", "data1", "read") // calls watcherEx.UpdateForRemovePolicy()
+	_, _ = e.RemoveFilteredPolicy(1, "data1")       // calls watcherEx.UpdateForRemoveFilteredPolicy()
+	_, _ = e.RemovePolicy("admin", "data1", "read") // calls watcherEx.UpdateForRemovePolicy()
+	_, _ = e.AddGroupingPolicy("g:admin", "data1")
+	_, _ = e.RemoveGroupingPolicy("g:admin", "data1")
+	_, _ = e.AddGroupingPolicy("g:admin", "data1")
+	_, _ = e.RemoveFilteredGroupingPolicy(1, "data1")
+	_, _ = e.AddPolicies([][]string{{"admin", "data1", "read"}, {"admin", "data2", "read"}})    // calls watcherEx.UpdateForAddPolicies()
+	_, _ = e.RemovePolicies([][]string{{"admin", "data1", "read"}, {"admin", "data2", "read"}}) // calls watcherEx.UpdateForRemovePolicies()
 }

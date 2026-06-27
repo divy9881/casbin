@@ -1,21 +1,20 @@
 # How to contribute
 
-The following is a set of guidelines for contributing to casbin and its libraries, which are hosted at [casbin organization at Github](https://github.com/casbin).
+The following is a set of guidelines for contributing to Apache Casbin and its libraries, which are hosted at [Apache Casbin organization at Github](https://github.com/apache).
 
 This project adheres to the [Contributor Covenant 1.2.](https://www.contributor-covenant.org/version/1/2/0/code-of-conduct.html) By participating, you are expected to uphold this code. Please report unacceptable behavior to info@casbin.com.
 
 ## Questions
 
-* We do our best to have un [up to date documentation](https://casbin.org/docs/en/overview)
-* [Stack Overflow](https://stackoverflow.com) is the best place to start if you have a question. Please use the [casbin tag](https://stackoverflow.com/tags/casbin/info) we are actively monitoring. We encourage you to use Stack Overflow specially for Modeling Access Control Problems, in order to build a shared knowledge base.
-* You can also join our [Gitter community](https://gitter.im/casbin/Lobby).
-
+- We do our best to have an [up-to-date documentation](https://casbin.apache.org/docs/overview)
+- [Stack Overflow](https://stackoverflow.com) is the best place to start if you have a question. Please use the [casbin tag](https://stackoverflow.com/tags/casbin/info) we are actively monitoring. We encourage you to use Stack Overflow specially for Modeling Access Control Problems, in order to build a shared knowledge base.
+- You can also join our [Discord](https://discord.gg/S5UjpzGZjN).
 
 ## Reporting issues
 
-Reporting issues are a great way to contribute to the project. We are perpetually grateful about a well-written, thorough bug report.
+Reporting issues are a great way to contribute to the project. We are perpetually grateful about a well-written, through bug report.
 
-Before raising a new issue, check our [issue list](https://github.com/casbin/casbin/issues) to determine if it already contains the problem that you are facing.
+Before raising a new issue, check our [issue list](https://github.com/apache/casbin/issues) to determine if it already contains the problem that you are facing.
 
 A good bug report shouldn't leave others needing to chase you for more information. Please be as detailed as possible. The following questions might serve as a template for writing a detailed report:
 
@@ -26,7 +25,6 @@ What are the steps to reproduce the issue?
 In what environment did you encounter the issue?
 
 Feature requests can also be submitted as issues.
-
 
 ## Pull requests
 

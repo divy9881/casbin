@@ -17,12 +17,16 @@ package casbin
 import (
 	"testing"
 
-	"github.com/casbin/casbin/v2/util"
+	"github.com/casbin/casbin/v3/util"
 )
 
-func testStringList(t *testing.T, title string, f func() []string, res []string) {
+func testStringList(t *testing.T, title string, f func() ([]string, error), res []string) {
 	t.Helper()
-	myRes := f()
+	myRes, err := f()
+	if err != nil {
+		t.Error(err)
+	}
+
 	t.Log(title+": ", myRes)
 
 	if !util.ArrayEquals(res, myRes) {
@@ -37,21 +41,40 @@ func TestGetList(t *testing.T) {
 	testStringList(t, "Objects", e.GetAllObjects, []string{"data1", "data2"})
 	testStringList(t, "Actions", e.GetAllActions, []string{"read", "write"})
 	testStringList(t, "Roles", e.GetAllRoles, []string{"data2_admin"})
+	testStringList(t, "Users", e.GetAllUsers, []string{"alice", "bob"})
+}
+
+func TestGetListWithDomains(t *testing.T) {
+	e, _ := NewEnforcer("examples/rbac_with_domains_model.conf", "examples/rbac_with_domains_policy.csv")
+
+	testStringList(t, "Subjects", e.GetAllSubjects, []string{"admin"})
+	testStringList(t, "Objects", e.GetAllObjects, []string{"data1", "data2"})
+	testStringList(t, "Actions", e.GetAllActions, []string{"read", "write"})
+	testStringList(t, "Roles", e.GetAllRoles, []string{"admin"})
+	testStringList(t, "Users", e.GetAllUsers, []string{})
 }
 
 func testGetPolicy(t *testing.T, e *Enforcer, res [][]string) {
 	t.Helper()
-	myRes := e.GetPolicy()
+	myRes, err := e.GetPolicy()
+	if err != nil {
+		t.Error(err)
+	}
+
 	t.Log("Policy: ", myRes)
 
-	if !util.Array2DEquals(res, myRes) {
+	if !util.SortedArray2DEquals(res, myRes) {
 		t.Error("Policy: ", myRes, ", supposed to be ", res)
 	}
 }
 
 func testGetFilteredPolicy(t *testing.T, e *Enforcer, fieldIndex int, res [][]string, fieldValues ...string) {
 	t.Helper()
-	myRes := e.GetFilteredPolicy(fieldIndex, fieldValues...)
+	myRes, err := e.GetFilteredPolicy(fieldIndex, fieldValues...)
+	if err != nil {
+		t.Error(err)
+	}
+
 	t.Log("Policy for ", util.ParamsToString(fieldValues...), ": ", myRes)
 
 	if !util.Array2DEquals(res, myRes) {
@@ -59,9 +82,27 @@ func testGetFilteredPolicy(t *testing.T, e *Enforcer, fieldIndex int, res [][]st
 	}
 }
 
+func testGetFilteredNamedPolicyWithMatcher(t *testing.T, e *Enforcer, ptype string, matcher string, res [][]string) {
+	t.Helper()
+	myRes, err := e.GetFilteredNamedPolicyWithMatcher(ptype, matcher)
+	t.Log("Policy for", matcher, ": ", myRes)
+
+	if err != nil {
+		t.Error(err)
+	}
+
+	if !util.Array2DEquals(res, myRes) {
+		t.Error("Policy for ", matcher, ": ", myRes, ", supposed to be ", res)
+	}
+}
+
 func testGetGroupingPolicy(t *testing.T, e *Enforcer, res [][]string) {
 	t.Helper()
-	myRes := e.GetGroupingPolicy()
+	myRes, err := e.GetGroupingPolicy()
+	if err != nil {
+		t.Error(err)
+	}
+
 	t.Log("Grouping policy: ", myRes)
 
 	if !util.Array2DEquals(res, myRes) {
@@ -71,7 +112,11 @@ func testGetGroupingPolicy(t *testing.T, e *Enforcer, res [][]string) {
 
 func testGetFilteredGroupingPolicy(t *testing.T, e *Enforcer, fieldIndex int, res [][]string, fieldValues ...string) {
 	t.Helper()
-	myRes := e.GetFilteredGroupingPolicy(fieldIndex, fieldValues...)
+	myRes, err := e.GetFilteredGroupingPolicy(fieldIndex, fieldValues...)
+	if err != nil {
+		t.Error(err)
+	}
+
 	t.Log("Grouping policy for ", util.ParamsToString(fieldValues...), ": ", myRes)
 
 	if !util.Array2DEquals(res, myRes) {
@@ -81,7 +126,11 @@ func testGetFilteredGroupingPolicy(t *testing.T, e *Enforcer, fieldIndex int, re
 
 func testHasPolicy(t *testing.T, e *Enforcer, policy []string, res bool) {
 	t.Helper()
-	myRes := e.HasPolicy(policy)
+	myRes, err := e.HasPolicy(policy)
+	if err != nil {
+		t.Error(err)
+	}
+
 	t.Log("Has policy ", util.ArrayToString(policy), ": ", myRes)
 
 	if res != myRes {
@@ -91,7 +140,11 @@ func testHasPolicy(t *testing.T, e *Enforcer, policy []string, res bool) {
 
 func testHasGroupingPolicy(t *testing.T, e *Enforcer, policy []string, res bool) {
 	t.Helper()
-	myRes := e.HasGroupingPolicy(policy)
+	myRes, err := e.HasGroupingPolicy(policy)
+	if err != nil {
+		t.Error(err)
+	}
+
 	t.Log("Has grouping policy ", util.ArrayToString(policy), ": ", myRes)
 
 	if res != myRes {
@@ -115,6 +168,13 @@ func TestGetPolicyAPI(t *testing.T) {
 	testGetFilteredPolicy(t, e, 1, [][]string{{"bob", "data2", "write"}, {"data2_admin", "data2", "read"}, {"data2_admin", "data2", "write"}}, "data2")
 	testGetFilteredPolicy(t, e, 2, [][]string{{"alice", "data1", "read"}, {"data2_admin", "data2", "read"}}, "read")
 	testGetFilteredPolicy(t, e, 2, [][]string{{"bob", "data2", "write"}, {"data2_admin", "data2", "write"}}, "write")
+
+	testGetFilteredNamedPolicyWithMatcher(t, e, "p", "'alice' == p.sub", [][]string{{"alice", "data1", "read"}})
+	testGetFilteredNamedPolicyWithMatcher(t, e, "p", "keyMatch2(p.sub, '*')", [][]string{
+		{"alice", "data1", "read"},
+		{"bob", "data2", "write"},
+		{"data2_admin", "data2", "read"},
+		{"data2_admin", "data2", "write"}})
 
 	testGetFilteredPolicy(t, e, 0, [][]string{{"data2_admin", "data2", "read"}, {"data2_admin", "data2", "write"}}, "data2_admin", "data2")
 	// Note: "" (empty string) in fieldValues means matching all values.
@@ -148,21 +208,25 @@ func TestModifyPolicyAPI(t *testing.T) {
 		{"data2_admin", "data2", "read"},
 		{"data2_admin", "data2", "write"}})
 
-	e.RemovePolicy("alice", "data1", "read")
-	e.RemovePolicy("bob", "data2", "write")
-	e.RemovePolicy("alice", "data1", "read")
-	e.AddPolicy("eve", "data3", "read")
-	e.AddPolicy("eve", "data3", "read")
+	_, _ = e.RemovePolicy("alice", "data1", "read")
+	_, _ = e.RemovePolicy("bob", "data2", "write")
+	_, _ = e.RemovePolicy("alice", "data1", "read")
+	_, _ = e.AddPolicy("eve", "data3", "read")
+	_, _ = e.AddPolicy("eve", "data3", "read")
 
 	rules := [][]string{
 		{"jack", "data4", "read"},
+		{"jack", "data4", "read"},
+		{"jack", "data4", "read"},
 		{"katy", "data4", "write"},
 		{"leyo", "data4", "read"},
+		{"katy", "data4", "write"},
+		{"katy", "data4", "write"},
 		{"ham", "data4", "write"},
 	}
 
-	e.AddPolicies(rules)
-	e.AddPolicies(rules)
+	_, _ = e.AddPolicies(rules)
+	_, _ = e.AddPolicies(rules)
 
 	testGetPolicy(t, e, [][]string{
 		{"data2_admin", "data2", "read"},
@@ -173,76 +237,128 @@ func TestModifyPolicyAPI(t *testing.T) {
 		{"leyo", "data4", "read"},
 		{"ham", "data4", "write"}})
 
-	e.RemovePolicies(rules)
-	e.RemovePolicies(rules)
+	_, _ = e.RemovePolicies(rules)
+	_, _ = e.RemovePolicies(rules)
 
 	namedPolicy := []string{"eve", "data3", "read"}
-	e.RemoveNamedPolicy("p", namedPolicy)
-	e.AddNamedPolicy("p", namedPolicy)
+	_, _ = e.RemoveNamedPolicy("p", namedPolicy)
+	_, _ = e.AddNamedPolicy("p", namedPolicy)
 
 	testGetPolicy(t, e, [][]string{
 		{"data2_admin", "data2", "read"},
 		{"data2_admin", "data2", "write"},
 		{"eve", "data3", "read"}})
 
-	e.RemoveFilteredPolicy(1, "data2")
+	_, _ = e.RemoveFilteredPolicy(1, "data2")
 
 	testGetPolicy(t, e, [][]string{{"eve", "data3", "read"}})
+
+	_, _ = e.UpdatePolicy([]string{"eve", "data3", "read"}, []string{"eve", "data3", "write"})
+
+	testGetPolicy(t, e, [][]string{{"eve", "data3", "write"}})
+
+	// This test shows a rollback effect.
+	// _, _ = e.UpdatePolicies([][]string{{"eve", "data3", "write"}, {"jack", "data4", "read"}}, [][]string{{"eve", "data3", "read"}, {"jack", "data4", "write"}})
+	// testGetPolicy(t, e, [][]string{{"eve", "data3", "read"}, {"jack", "data4", "write"}})
+
+	_, _ = e.AddPolicies(rules)
+	_, _ = e.UpdatePolicies([][]string{{"eve", "data3", "write"}, {"leyo", "data4", "read"}, {"katy", "data4", "write"}},
+		[][]string{{"eve", "data3", "read"}, {"leyo", "data4", "write"}, {"katy", "data1", "write"}})
+	testGetPolicy(t, e, [][]string{{"eve", "data3", "read"}, {"jack", "data4", "read"}, {"katy", "data1", "write"}, {"leyo", "data4", "write"}, {"ham", "data4", "write"}})
+
+	e.ClearPolicy()
+	_, _ = e.AddPoliciesEx([][]string{{"user1", "data1", "read"}, {"user1", "data1", "read"}})
+	testGetPolicy(t, e, [][]string{{"user1", "data1", "read"}})
+	// {"user1", "data1", "read"} repeated
+	_, _ = e.AddPoliciesEx([][]string{{"user1", "data1", "read"}, {"user2", "data2", "read"}})
+	testGetPolicy(t, e, [][]string{{"user1", "data1", "read"}, {"user2", "data2", "read"}})
+	// {"user1", "data1", "read"}, {"user2", "data2", "read"} repeated
+	_, _ = e.AddNamedPoliciesEx("p", [][]string{{"user1", "data1", "read"}, {"user2", "data2", "read"}, {"user3", "data3", "read"}})
+	testGetPolicy(t, e, [][]string{{"user1", "data1", "read"}, {"user2", "data2", "read"}, {"user3", "data3", "read"}})
+	// {"user1", "data1", "read"}, {"user2", "data2", "read"}, , {"user3", "data3", "read"} repeated
+	_, _ = e.SelfAddPoliciesEx("p", "p", [][]string{{"user1", "data1", "read"}, {"user2", "data2", "read"}, {"user3", "data3", "read"}, {"user4", "data4", "read"}})
+	testGetPolicy(t, e, [][]string{{"user1", "data1", "read"}, {"user2", "data2", "read"}, {"user3", "data3", "read"}, {"user4", "data4", "read"}})
 }
 
 func TestModifyGroupingPolicyAPI(t *testing.T) {
 	e, _ := NewEnforcer("examples/rbac_model.conf", "examples/rbac_policy.csv")
 
-	testGetRoles(t, e, "alice", []string{"data2_admin"})
-	testGetRoles(t, e, "bob", []string{})
-	testGetRoles(t, e, "eve", []string{})
-	testGetRoles(t, e, "non_exist", []string{})
+	testGetRoles(t, e, []string{"data2_admin"}, "alice")
+	testGetRoles(t, e, []string{}, "bob")
+	testGetRoles(t, e, []string{}, "eve")
+	testGetRoles(t, e, []string{}, "non_exist")
 
-	e.RemoveGroupingPolicy("alice", "data2_admin")
-	e.AddGroupingPolicy("bob", "data1_admin")
-	e.AddGroupingPolicy("eve", "data3_admin")
+	_, _ = e.RemoveGroupingPolicy("alice", "data2_admin")
+	_, _ = e.AddGroupingPolicy("bob", "data1_admin")
+	_, _ = e.AddGroupingPolicy("eve", "data3_admin")
 
 	groupingRules := [][]string{
 		{"ham", "data4_admin"},
 		{"jack", "data5_admin"},
 	}
 
-	e.AddGroupingPolicies(groupingRules)
-	testGetRoles(t, e, "ham", []string{"data4_admin"})
-	testGetRoles(t, e, "jack", []string{"data5_admin"})
-	e.RemoveGroupingPolicies(groupingRules)
+	_, _ = e.AddGroupingPolicies(groupingRules)
+	testGetRoles(t, e, []string{"data4_admin"}, "ham")
+	testGetRoles(t, e, []string{"data5_admin"}, "jack")
+	_, _ = e.RemoveGroupingPolicies(groupingRules)
 
-	testGetRoles(t, e, "alice", []string{})
+	testGetRoles(t, e, []string{}, "alice")
 	namedGroupingPolicy := []string{"alice", "data2_admin"}
-	testGetRoles(t, e, "alice", []string{})
-	e.AddNamedGroupingPolicy("g", namedGroupingPolicy)
-	testGetRoles(t, e, "alice", []string{"data2_admin"})
-	e.RemoveNamedGroupingPolicy("g", namedGroupingPolicy)
+	testGetRoles(t, e, []string{}, "alice")
+	_, _ = e.AddNamedGroupingPolicy("g", namedGroupingPolicy)
+	testGetRoles(t, e, []string{"data2_admin"}, "alice")
+	_, _ = e.RemoveNamedGroupingPolicy("g", namedGroupingPolicy)
 
-	e.AddNamedGroupingPolicies("g", groupingRules)
-	e.AddNamedGroupingPolicies("g", groupingRules)
-	testGetRoles(t, e, "ham", []string{"data4_admin"})
-	testGetRoles(t, e, "jack", []string{"data5_admin"})
-	e.RemoveNamedGroupingPolicies("g", groupingRules)
-	e.RemoveNamedGroupingPolicies("g", groupingRules)
+	_, _ = e.AddNamedGroupingPolicies("g", groupingRules)
+	_, _ = e.AddNamedGroupingPolicies("g", groupingRules)
+	testGetRoles(t, e, []string{"data4_admin"}, "ham")
+	testGetRoles(t, e, []string{"data5_admin"}, "jack")
+	_, _ = e.RemoveNamedGroupingPolicies("g", groupingRules)
+	_, _ = e.RemoveNamedGroupingPolicies("g", groupingRules)
 
-	testGetRoles(t, e, "alice", []string{})
-	testGetRoles(t, e, "bob", []string{"data1_admin"})
-	testGetRoles(t, e, "eve", []string{"data3_admin"})
-	testGetRoles(t, e, "non_exist", []string{})
+	testGetRoles(t, e, []string{}, "alice")
+	testGetRoles(t, e, []string{"data1_admin"}, "bob")
+	testGetRoles(t, e, []string{"data3_admin"}, "eve")
+	testGetRoles(t, e, []string{}, "non_exist")
 
-	testGetUsers(t, e, "data1_admin", []string{"bob"})
-	testGetUsers(t, e, "data2_admin", []string{})
-	testGetUsers(t, e, "data3_admin", []string{"eve"})
+	testGetUsers(t, e, []string{"bob"}, "data1_admin")
+	testGetUsers(t, e, []string{}, "data2_admin")
+	testGetUsers(t, e, []string{"eve"}, "data3_admin")
 
-	e.RemoveFilteredGroupingPolicy(0, "bob")
+	_, _ = e.RemoveFilteredGroupingPolicy(0, "bob")
 
-	testGetRoles(t, e, "alice", []string{})
-	testGetRoles(t, e, "bob", []string{})
-	testGetRoles(t, e, "eve", []string{"data3_admin"})
-	testGetRoles(t, e, "non_exist", []string{})
+	testGetRoles(t, e, []string{}, "alice")
+	testGetRoles(t, e, []string{}, "bob")
+	testGetRoles(t, e, []string{"data3_admin"}, "eve")
+	testGetRoles(t, e, []string{}, "non_exist")
 
-	testGetUsers(t, e, "data1_admin", []string{})
-	testGetUsers(t, e, "data2_admin", []string{})
-	testGetUsers(t, e, "data3_admin", []string{"eve"})
+	testGetUsers(t, e, []string{}, "data1_admin")
+	testGetUsers(t, e, []string{}, "data2_admin")
+	testGetUsers(t, e, []string{"eve"}, "data3_admin")
+	_, _ = e.AddGroupingPolicy("data3_admin", "data4_admin")
+	_, _ = e.UpdateGroupingPolicy([]string{"eve", "data3_admin"}, []string{"eve", "admin"})
+	_, _ = e.UpdateGroupingPolicy([]string{"data3_admin", "data4_admin"}, []string{"admin", "data4_admin"})
+	testGetUsers(t, e, []string{"admin"}, "data4_admin")
+	testGetUsers(t, e, []string{"eve"}, "admin")
+
+	testGetRoles(t, e, []string{"admin"}, "eve")
+	testGetRoles(t, e, []string{"data4_admin"}, "admin")
+
+	_, _ = e.UpdateGroupingPolicies([][]string{{"eve", "admin"}}, [][]string{{"eve", "admin_groups"}})
+	_, _ = e.UpdateGroupingPolicies([][]string{{"admin", "data4_admin"}}, [][]string{{"admin", "data5_admin"}})
+	testGetUsers(t, e, []string{"admin"}, "data5_admin")
+	testGetUsers(t, e, []string{"eve"}, "admin_groups")
+
+	testGetRoles(t, e, []string{"data5_admin"}, "admin")
+	testGetRoles(t, e, []string{"admin_groups"}, "eve")
+
+	e.ClearPolicy()
+	_, _ = e.AddGroupingPoliciesEx([][]string{{"user1", "member"}})
+	testGetUsers(t, e, []string{"user1"}, "member")
+	// {"user1", "member"} repeated
+	_, _ = e.AddGroupingPoliciesEx([][]string{{"user1", "member"}, {"user2", "member"}})
+	testGetUsers(t, e, []string{"user1", "user2"}, "member")
+	// {"user1", "member"}, {"user2", "member"} repeated
+	_, _ = e.AddNamedGroupingPoliciesEx("g", [][]string{{"user1", "member"}, {"user2", "member"}, {"user3", "member"}})
+	testGetUsers(t, e, []string{"user1", "user2", "user3"}, "member")
 }

@@ -21,15 +21,26 @@ import (
 	"os"
 	"strings"
 
-	"github.com/casbin/casbin/v2/model"
-	"github.com/casbin/casbin/v2/persist"
-	"github.com/casbin/casbin/v2/util"
+	"github.com/casbin/casbin/v3/model"
+	"github.com/casbin/casbin/v3/persist"
 )
 
 // Adapter is the file adapter for Casbin.
 // It can load policy from file or save policy to file.
 type Adapter struct {
 	filePath string
+}
+
+func (a *Adapter) UpdatePolicy(sec string, ptype string, oldRule, newRule []string) error {
+	return errors.New("not implemented")
+}
+
+func (a *Adapter) UpdatePolicies(sec string, ptype string, oldRules, newRules [][]string) error {
+	return errors.New("not implemented")
+}
+
+func (a *Adapter) UpdateFilteredPolicies(sec string, ptype string, newRules [][]string, fieldIndex int, fieldValues ...string) ([][]string, error) {
+	return nil, errors.New("not implemented")
 }
 
 // NewAdapter is the constructor for Adapter.
@@ -56,16 +67,22 @@ func (a *Adapter) SavePolicy(model model.Model) error {
 
 	for ptype, ast := range model["p"] {
 		for _, rule := range ast.Policy {
-			tmp.WriteString(ptype + ", ")
-			tmp.WriteString(util.ArrayToString(rule))
+			line, err := persist.PolicyLineToCsv(ptype, rule)
+			if err != nil {
+				return err
+			}
+			tmp.WriteString(line)
 			tmp.WriteString("\n")
 		}
 	}
 
 	for ptype, ast := range model["g"] {
 		for _, rule := range ast.Policy {
-			tmp.WriteString(ptype + ", ")
-			tmp.WriteString(util.ArrayToString(rule))
+			line, err := persist.PolicyLineToCsv(ptype, rule)
+			if err != nil {
+				return err
+			}
+			tmp.WriteString(line)
 			tmp.WriteString("\n")
 		}
 	}
@@ -73,7 +90,7 @@ func (a *Adapter) SavePolicy(model model.Model) error {
 	return a.savePolicyFile(strings.TrimRight(tmp.String(), "\n"))
 }
 
-func (a *Adapter) loadPolicyFile(model model.Model, handler func(string, model.Model)) error {
+func (a *Adapter) loadPolicyFile(model model.Model, handler func(string, model.Model) error) error {
 	f, err := os.Open(a.filePath)
 	if err != nil {
 		return err
@@ -83,7 +100,10 @@ func (a *Adapter) loadPolicyFile(model model.Model, handler func(string, model.M
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
-		handler(line, model)
+		err = handler(line, model)
+		if err != nil {
+			return err
+		}
 	}
 	return scanner.Err()
 }
